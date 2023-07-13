@@ -1,82 +1,82 @@
 import {
-  FlatList,
-  Image,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
+  SafeAreaView,
+  ScrollView,
+  Image,
+  Pressable,
+  FlatList,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
+import { AntDesign } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { AntDesign } from "@expo/vector-icons";
 import axios from "axios";
 import ArtistCard from "../components/ArtistCard";
+// import RecentlyPlayedCard from "../components/RecentlyPlayedCard";
+import { useNavigation } from "@react-navigation/native";
+import RecentlyPlayedCard from "../components/RecentlyPlayedCard";
 
-const HomeScreens = () => {
+const HomeScreen = () => {
   const [userProfile, setUserProfile] = useState();
-  const [recentlyPlayed, setRecentlyPlayed] = useState([]);
-  const [topArtists, setTopArtists] = useState([]) = useState([]);
-  
+  const [recentlyplayed, setRecentlyPlayed] = useState([]);
+  const [topArtists, setTopArtists] = useState([]);
+
+  const navigation = useNavigation();
+
   const greetingMessage = () => {
     const currentTime = new Date().getHours();
-
     if (currentTime < 12) {
-      return "Morning";
+      return "Good Morning";
     } else if (currentTime < 16) {
-      return "Afternoon";
+      return "Good Afternoon";
     } else {
-      return "Evening";
+      return "Good Evening";
+    }
+  };
+  const message = greetingMessage();
+
+  const getProfile = async () => {
+    const accessToken = await AsyncStorage.getItem("token");
+    try {
+      const response = await fetch("https://api.spotify.com/v1/me", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const data = await response.json();
+      setUserProfile(data);
+      return data;
+    } catch (err) {
+      console.log(err.message);
+    }
+  };
+  useEffect(() => {
+    getProfile();
+  }, []);
+
+  const getRecentlyPlayedSongs = async () => {
+    const accessToken = await AsyncStorage.getItem("token");
+    try {
+      const response = await axios({
+        method: "GET",
+        url: "https://api.spotify.com/v1/me/player/recently-played?limit=4",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const tracks = response.data.items;
+      setRecentlyPlayed(tracks);
+    } catch (err) {
+      console.log(err.message);
     }
   };
 
   useEffect(() => {
-    const getProfile = async () => {
-      const accessToken = await AsyncStorage.getItem("token");
-
-      try {
-        const response = await fetch("https://api.spotify.com/v1/me", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-        const data = await response.json();
-        setUserProfile(data);
-        return data;
-      } catch (error) {
-        console.log(error.message);
-      }
-    };
-
-    getProfile();
-  }, []);
-
-  useEffect(() => {
-    const getRecentlyPlayedSongs = async () => {
-      const accessToken = await AsyncStorage.getItem("token");
-
-      try {
-        const response = await axios.get(
-          "https://api.spotify.com/v1/me/player/recently-played?limit=4",
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        );
-
-        const track = await response.data.items;
-        setRecentlyPlayed(track);
-      } catch (error) {
-        console.log(error.message);
-      }
-    };
-
     getRecentlyPlayedSongs();
   }, []);
-
   const renderItem = ({ item }) => {
     return (
       <Pressable
@@ -133,12 +133,11 @@ const HomeScreens = () => {
     };
 
     getTopItems();
-    console.log(topArtists);
   }, []);
 
   return (
     <LinearGradient colors={["#040306", "#131624"]} style={{ flex: 1 }}>
-      <ScrollView style={{ marginTop: 60 }}>
+      <ScrollView style={{ marginTop: 50 }}>
         <View
           style={{
             padding: 10,
@@ -155,19 +154,20 @@ const HomeScreens = () => {
                 borderRadius: 20,
                 resizeMode: "cover",
               }}
-              // source={{ uri: userProfile?.images[0].url }}
+              source={{ uri: userProfile?.images[0].url }}
             />
             <Text
               style={{
                 marginLeft: 10,
-                fontSize: 23,
+                fontSize: 20,
                 fontWeight: "bold",
                 color: "white",
               }}
             >
-              Good {greetingMessage()}
+              {message}
             </Text>
           </View>
+
           <MaterialCommunityIcons
             name="lightning-bolt-outline"
             size={24}
@@ -217,6 +217,7 @@ const HomeScreens = () => {
           }}
         >
           <Pressable
+            onPress={() => navigation.navigate("Liked")}
             style={{
               marginBottom: 10,
               flexDirection: "row",
@@ -242,6 +243,7 @@ const HomeScreens = () => {
                 <AntDesign name="heart" size={24} color="white" />
               </Pressable>
             </LinearGradient>
+
             <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>
               Liked Songs
             </Text>
@@ -265,13 +267,17 @@ const HomeScreens = () => {
               style={{ width: 55, height: 55 }}
               source={{ uri: "https://i.pravatar.cc/100" }}
             />
-            <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>
-              HipHop Tamhiza
-            </Text>
+            <View style={styles.randomArtist}>
+              <Text
+                style={{ color: "white", fontSize: 13, fontWeight: "bold" }}
+              >
+                Hiphop Tamhiza
+              </Text>
+            </View>
           </View>
         </View>
         <FlatList
-          data={recentlyPlayed}
+          data={recentlyplayed}
           renderItem={renderItem}
           numColumns={2}
           columnWrapperStyle={{ justifyContent: "space-between" }}
@@ -293,11 +299,33 @@ const HomeScreens = () => {
             <ArtistCard item={item} key={index} />
           ))}
         </ScrollView>
+
+        <View style={{ height: 10 }} />
+        <Text
+          style={{
+            color: "white",
+            fontSize: 19,
+            fontWeight: "bold",
+            marginHorizontal: 10,
+            marginTop: 10,
+          }}
+        >
+          Recently Played
+        </Text>
+
+        <FlatList
+          data={recentlyplayed}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          renderItem={({ item, index }) => (
+            <RecentlyPlayedCard item={item} key={index} />
+          )}
+        />
       </ScrollView>
     </LinearGradient>
   );
 };
 
-export default HomeScreens;
+export default HomeScreen;
 
 const styles = StyleSheet.create({});

@@ -1,18 +1,23 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
-import Navigation from './StackNavigator';
+import { StatusBar } from "expo-status-bar";
+import { StyleSheet, Text, View } from "react-native";
+import Navigation from "./StackNavigator";
+import { PlayerContext } from "./PlayerContext";
+import { ModalPortal } from "react-native-modals";
 
 export default function App() {
   return (
-    <Navigation />
+    <PlayerContext>
+      <Navigation />
+      <ModalPortal />
+    </PlayerContext>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

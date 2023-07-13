@@ -44,6 +44,7 @@ const LoginScreens = () => {
           // The token would be expired. So, we are going to remove it from the AsyncStorage
           AsyncStorage.removeItem("token");
           AsyncStorage.removeItem("expirationDate");
+          navigation.navigate("Login");
         }
       }
     };
