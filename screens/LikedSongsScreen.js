@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -35,6 +35,8 @@ const LikedSongsScreen = () => {
   const { currentTrack, setCurrentTrack } = useTrackContext();
   const [modalVisible, setModalVisible] = useState(false);
   const [currentSound, setCurrentSound] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const value = useRef(0);
   const [progress, setProgress] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [totalDuration, setTotalDuration] = useState(0);
@@ -78,6 +80,9 @@ const LikedSongsScreen = () => {
     const preview_url = nextTrack?.track?.preview_url;
 
     try {
+      if (currentSound) {
+        await currentSound.stopAsync();
+      }
       await Audio.setAudioModeAsync({
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
@@ -91,6 +96,7 @@ const LikedSongsScreen = () => {
       );
       onPlayBackStatusUpdate(status);
       setCurrentSound(sound);
+      setIsPlaying(status.isLoaded);
       console.log("sound", status);
       await sound.playAsync();
     } catch (error) {
@@ -102,14 +108,67 @@ const LikedSongsScreen = () => {
     console.log(status);
     if (status.isLoaded && status.isPlaying) {
       const progress = status.positionMillis / status.durationMillis;
-      // console.log("Progress", progress);
+      console.log("progresss", progress);
       setProgress(progress);
-      setCurrentTime(progress.positionMillis);
-      setTotalDuration(progress.durationMillis);
+      setCurrentTime(status.positionMillis);
+      setTotalDuration(status.durationMillis);
+    }
+
+    if (status.didJustFinish === true) {
+      setCurrentSound(null);
+      playNextTrack();
     }
   };
 
   const circleSize = 12;
+
+  const formatTime = (time) => {
+    const minutes = Math.floor(time / 60000);
+    const seconds = Math.floor((time % 60000) / 1000);
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+  };
+
+  const handlePlayPause = async () => {
+    if (currentSound) {
+      if (isPlaying) {
+        await currentSound.pauseAsync();
+      } else {
+        await currentSound.playAsync();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const playNextTrack = async () => {
+    if (currentSound) {
+      await currentSound.stopAsync();
+      setCurrentSound(null);
+    }
+    value.current += 1;
+    if (value.current < savedTracks.length) {
+      const nextTrack = savedTracks[value.current];
+      setCurrentTrack(nextTrack);
+      await play(nextTrack);
+    } else {
+      console.log("end of playlist");
+    }
+  };
+
+  const playPreviousTrack = async () => {
+    if (currentSound) {
+      await currentSound.stopAsync();
+      setCurrentSound(null);
+    }
+    value.current -= 1;
+
+    if (value.current < savedTracks.length) {
+      const nextTrack = savedTracks[value.current];
+      setCurrentTrack(nextTrack);
+      await play(nextTrack);
+    } else {
+      console.log("end of playlist");
+    }
+  };
 
   return (
     <>
@@ -221,7 +280,13 @@ const LikedSongsScreen = () => {
           <FlatList
             showsVerticalScrollIndicator={false}
             data={savedTracks}
-            renderItem={({ item }) => <SongItem item={item} />}
+            renderItem={({ item }) => (
+              <SongItem
+                item={item}
+                onPress={play}
+                isPlaying={item === currentTrack}
+              />
+            )}
           />
         </ScrollView>
       </LinearGradient>
@@ -359,9 +424,12 @@ const LikedSongsScreen = () => {
                         width: circleSize,
                         height: circleSize,
                         borderRadius: circleSize / 2,
-                        backgroundColor: 'white'
+                        backgroundColor: "white",
                       },
-                      { left:`${progress * 100}%` ,marginLeft: -circleSize / 2}
+                      {
+                        left: `${progress * 100}%`,
+                        marginLeft: -circleSize / 2,
+                      },
                     ]}
                   />
                 </View>
@@ -377,12 +445,12 @@ const LikedSongsScreen = () => {
                   <Text
                     style={{ color: "white", fontSize: 15, color: "#D3D3D3" }}
                   >
-                    0:00
+                    {formatTime(currentTime)}
                   </Text>
                   <Text
                     style={{ color: "white", fontSize: 15, color: "#D3D3D3" }}
                   >
-                    0:30
+                    {formatTime(totalDuration)}
                   </Text>
                 </View>
               </View>
@@ -397,25 +465,29 @@ const LikedSongsScreen = () => {
                 <Pressable>
                   <FontAwesome name="arrows" size={30} color="#03C03C" />
                 </Pressable>
-                <Pressable>
+                <Pressable onPress={playPreviousTrack}>
                   <Ionicons name="play-skip-back" size={30} color="white" />
                 </Pressable>
-                <Pressable>
-                  {/* <AntDesign name="pausecircle" size={60} color="white" /> */}
-                  <Pressable
-                    style={{
-                      width: 60,
-                      height: 60,
-                      borderRadius: 30,
-                      backgroundColor: "white",
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Entypo name="controller-play" size={26} color="black" />
-                  </Pressable>
+                <Pressable onPress={handlePlayPause}>
+                  {isPlaying ? (
+                    <AntDesign name="pausecircle" size={60} color="white" />
+                  ) : (
+                    <Pressable
+                      onPress={handlePlayPause}
+                      style={{
+                        width: 60,
+                        height: 60,
+                        borderRadius: 30,
+                        backgroundColor: "white",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Entypo name="controller-play" size={26} color="black" />
+                    </Pressable>
+                  )}
                 </Pressable>
-                <Pressable>
+                <Pressable onPress={playNextTrack}>
                   <Ionicons name="play-skip-forward" size={30} color="white" />
                 </Pressable>
                 <Pressable>
